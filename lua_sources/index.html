@@ -1,0 +1,67 @@
+<html>
+<head>
+<script>
+var req = new XMLHttpRequest();
+var retour="";
+function request(aReq,reponse)
+{
+req.open("GET", aReq,false);
+req.onreadystatechange = function () {
+retour=req.responseText;
+console.log(reponse + " " + retour);
+if ( retour != "" )
+    {
+    document.getElementById(reponse).innerHTML = aReq + " " + retour;
+    }
+}
+req.send(null); 
+}
+function refresh()
+{
+request("currentState","currentState");
+request("currentNumber","currentNumber");
+request("currentMenu","currentMenu");
+}
+</script>
+<style>
+.button{
+top:150px;
+position:absolute;
+left:40%;
+width:300px;
+height:300px;
+border-radius:5px;
+color: black;
+font-size:260px;
+background-color: grey;
+text-align:center;
+line-height:270px;
+font-family: Verdana, Times, serif;
+}
+.buttonLight{
+font-family: Verdana, Times, serif;
+ position:fixed;color:white;
+ width:150px;
+ height:150px;
+ border-radius:150px;
+ background-color: grey;
+ line-height:140px;
+}
+</style>
+</head>
+<body bgcolor="#000000" >
+<div id=currentState  style="position:fixed;right:10px;top:10px;color: white;font-family: Verdana">CurrentState</div>
+<div id=currentNumber  style="position:fixed;right:10px;top:30px;color: white;font-family: Verdana">CurrentNumber</div>
+<div id=currentMenu  style="position:fixed;right:10px;top:50px;color: white;font-family: Verdana">CurrentMenu</div>
+<div id=addNumber class=buttonLight onclick="javascript:request('addNumber');refresh();" style="top:20%;left:10px;"><center>nextNumber</center></div>
+<div id=addNumber class=buttonLight onclick="javascript:request('restart');refresh();" style="top:60%;left:10px;"><center>restart</center></div>
+<div id=switchMenu class=buttonLight onclick="javascript:request('switchMenu');refresh();" style="top:20%;right:10px;"><center>nextFunction</center></div>
+<div id=switchMenu class=buttonLight onclick="javascript:request('wifiMode');refresh();" style="top:60%;right:10px;"><center>wifiMode</center></div>
+<div id=up onclick="javascript:request('up');refresh();" class=button>&uarr;</div>
+<div id=stop onclick="javascript:request('stop');refresh();" class=button style="top:475px;height:100px;font-size:100px;line-height:90px;">STOP</div>
+<div id=down onclick="javascript:request('down');refresh();" class=button style="top:600px">&darr;</div>
+<script>
+refresh();
+</script>
+</body>
+</html>
