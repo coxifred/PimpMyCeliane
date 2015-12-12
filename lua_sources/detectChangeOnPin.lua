@@ -3,21 +3,58 @@ local oldCurrentMenu="Volet"
 currentNumber="0"
 local version="Legrand Celiane v1.0"
 currentState="unknown"
+local pin1Value=0
+local oldpin1Value=99
+local pin2Value=0
+local oldpin2Value=99
 
+gpio.mode(3,gpio.OUTPUT)
+gpio.mode(4,gpio.OUTPUT)
 
+tmr.alarm(1,  1000, 1, function() 
+        gpio.mode(1,gpio.OUTPUT)
+        gpio.write(1,gpio.HIGH)
+        gpio.mode(1,gpio.INPUT)
+        pin1Value=gpio.read(1)
+        --print('PIN 1 ',pin1Value)
+        gpio.mode(2,gpio.OUTPUT)
+        gpio.write(2,gpio.HIGH)
+        gpio.mode(2,gpio.INPUT)
+        pin2Value=gpio.read(2)
+        --print('PIN 2 ',pin2Value)
+        --print('currentMode: ', currentMode,' currentMenu: ' , currentMenu ,' currentNumber: ', currentNumber)
 
-gpio.mode(1,gpio.INPUT,gpio.PULLUP)
-gpio.mode(2,gpio.INPUT,gpio.PULLUP)
-gpio.mode(3, gpio.OUTPUT,gpio.PULLUP)
-gpio.mode(4, gpio.OUTPUT,gpio.PULLUP)
+        if ( pin1Value ~= oldpin1Value or pin2Value ~= oldpin2Value) then
+            if ( pin1Value == 1 and pin2Value == 1) then
+                stop()
+                if ( currentMode ~= "admin" ) then
+                 beAdmin()
+                end
+            elseif (  pin1Value == 0 and pin2Value == 1 ) then
+                 up()
+                elseif (  pin2Value == 0 and pin1Value == 1 ) then
+                 down()
+            end
+            oldpin1Value=pin1Value
+            oldpin2Value=pin2Value
+         else
+          --print ('nothing change')
+        end
+        
+end )
 
 function launchHttp(action)
+
+if ( currentMode ~= "admin" ) then
 newHttp=http .. "nodeId=" .. nodeId .. "&mode=" .. oldCurrentMenu .. "&objId=" .. currentNumber.."&action="..action
+sendMqtt("{mode:" .. oldCurrentMenu ..", currentNumber:" .. currentNumber ..", action:" .. action .."}")
 print (newHttp)
 sk=net.createConnection(net.TCP, 0)
 sk:on("receive", function(conn, payload) print(payload) end )
 sk:connect(80,serveur)
 sk:send("GET " .. newHttp .. " HTTP/1.1\r\nHost: " .. serveur .. "\r\nConnection: keep-alive\r\nAccept: */*\r\n\r\n")
+end
+
 end
 
 function all_trim(s)
@@ -51,6 +88,7 @@ function changeNumber()
      write(version,currentMenu,currentNumber,"","")
 end
 
+
 function upSecond(time)
      write(version,"Up for ",time,"ms","")
      up()
@@ -59,7 +97,6 @@ function upSecond(time)
      end )
 end
 function downSecond(time)
-     write(version,"Up for ",time,"ms","")
      down()
      tmr.alarm(0, tonumber(time), 0, function() 
        stop()
@@ -79,44 +116,38 @@ function noAdmin()
      currentMode="noAdmin"
 end
 
-function changeMode()
-   realLevel1=readLevel(1)
-   realLevel2=readLevel(2)
-   --print("realLevel1 ",realLevel1, " realLevel2 ", realLevel2)
-   if  ( realLevel1 == 1 and realLevel2 == 1 and currentMode ~= "admin" )
-    then
-     --
-     stop()
-     beAdmin()
-   end
-   
-end
+
 
 function stop()
+ if ( currentMode ~= "admin" ) then
   gpio.write(4, gpio.LOW)
   carre(version,currentMenu .. "(" .. currentNumber ..")","","","stop now!")
   launchHttp("stop");
+ end
 end
 
 function unstop()
+if ( currentMode ~= "admin" ) then
+ 
  gpio.write(4, gpio.HIGH)
+end
 end
 
 
 function up()
 unstop()
- if ( currentMode ~= "admin" )
- then
+ if ( currentMode ~= "admin" ) then
+
    dispUp(version,currentMenu .. "(" .. currentNumber ..")","up now!","","")
    print("currentMenu ",currentMenu, " currentNumber ", currentNumber," nodeId ", nodeId)
    if ( currentMenu == "Volet" and currentNumber == nodeId )
     then
        gpio.write(3, gpio.HIGH)
-       
-       gpio.trig(1, "down")
        currentState="up"
     end
        launchHttp("up")
+ else
+  changeMenu()
  end 
 end
 
@@ -129,88 +160,11 @@ if ( currentMode ~= "admin" )
    if ( currentMenu == "Volet" and currentNumber == nodeId )
     then
        gpio.write(3, gpio.LOW)
-       gpio.trig(2, "down")
-       
        currentState="down"
     end
        launchHttp("down")
+ else
+  changeNumber()
  end 
 end
  
--- Fonction appelee en cas de branchement sur le pin1
-function pin1cb(level)
-      realLevel=readLevel(1)
-      realLevel2=readLevel(2)
-      --print ("Change on pin1 reallevel " , realLevel, " reallevel2 ", realLevel2)
-      if ( currentMode == "admin" )
-       then
-        if ( realLevel2 == 1 ) then
-           changeMenu()
-        end
-      else
-      
-      if realLevel == 1 then
-             up()
-          else 
-             gpio.trig(1, "up")
-          end
-          changeMode()
-     end
-end
-
--- Fonction appelee en cas de branchement sur le pin2
-function pin2cb(level)
-      
-      realLevel=readLevel(2)
-      realLevel1=readLevel(1)
-      --print ("Change on pin2 reallevel" , realLevel)
-      print ("Change on pin2 reallevel " , realLevel, " reallevel1 ", realLevel1)
-      if ( currentMode == "admin" )
-       then
-        if ( realLevel == 0 )
-         then
-          changeNumber()
-        end
-      else
-      if realLevel == 1 then
-         down()
-      else
-         gpio.trig(2, "up")
-      end
-      changeMode()
-      end
-end
-
-
-function readLevel(index)
-  i=0
-  sum=0
-  tmr.delay(200)
-  while i <= 5 do
-     sum=sum + gpio.read(index)
-     i= i + 1
-   end
-   if sum >= 5
-    then
-      return 1
-    else
-      return 0
-   end
-end
-
-
-
-
-if (gpio.read(1) == 0 )
- then
-  gpio.trig(1, "down",pin1cb)
- else
-  gpio.trig(1, "up",pin1cb)
-end
-
-if (gpio.read(2) == 0 )
- then
-  gpio.trig(2, "down",pin2cb)
- else
-  gpio.trig(2, "up",pin2cb)
-end
